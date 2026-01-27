@@ -1,0 +1,15 @@
+# This file defines who owns which parts of the codebase.
+# These owners are automatically requested for review when a PR touches their files.
+
+# Core Infrastructure
+*       @FoundLab/core-team
+
+# Client / Frontend
+/client/    @FoundLab/frontend-engineers
+
+# Server / Python Backend
+/server/    @FoundLab/backend-engineers
+/server/pipeline/stage4_veritas/  @FoundLab/security-team
+
+# Documentation
+*.md    @FoundLab/technical-writers
