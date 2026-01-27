@@ -111,9 +111,21 @@ graph TD
    cd foundlab-suite
    ```
 
-2. **Setup Client (Frontend & Agents)**
+2. **Setup Server (Trust Engine)**
+   *Required for Veritas Auditing & Umbrella Encryption.*
    ```bash
-   cd client
+   cd server
+   python -m venv venv
+   # Windows: .\venv\Scripts\activate
+   # Linux/Mac: source venv/bin/activate
+   pip install -r requirements.txt
+   python main.py
+   ```
+   *Server runs at `http://localhost:8000`*
+
+3. **Setup Client (Cognitive Interface)**
+   ```bash
+   cd ../client
    npm install
    
    # Setup Environment
@@ -122,19 +134,15 @@ graph TD
    
    npm run dev
    ```
-
-3. **Setup Server (Optional for pure Agent mode)**
-   ```bash
-   cd ../server
-   pip install -e .
-   ```
+   *Client runs at `http://localhost:3000`*
 
 ## 🧠 Core Features
 
 | Module | Description | Tech Stack |
 | :--- | :--- | :--- |
+| **Tier A KYC** | **NEW:** Multi-PDF ingestion, Analyst Context Injection, and Bank-Grade PDF Reporting. | Gemini Vision, jsPDF |
 | **DeepSearch** | Autonomous agent that plans, executes, and synthesizes research. | Gemini 3 Pro, Thinking Mode |
-| **Veritas Protocol** | Hash-chained audit logs ensuring immutability of decisions. | SHA-256, Merkle DAG |
+| **Veritas Protocol** | Hash-chained audit logs ensuring immutability of decisions. | SHA-256, Merkle DAG, FastAPI |
 | **Risk Engine** | Real-time analysis of entities against FATF/OFAC guidelines. | Gemini 2.5 Flash |
 | **Optical Sieve** | Computer vision pipeline for document authentication. | OpenCV, Tesseract |
 
