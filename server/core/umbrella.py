@@ -29,8 +29,7 @@ class UmbrellaKMS:
         return {
             "key_id": key_id,
             "ciphertext": ciphertext,
-            "algo": "Fernet (AES-128-CBC)",
-            "key_value_debug": key.decode('utf-8') # REMOVER EM PRODUÇÃO
+            "algo": "Fernet (AES-128-CBC)"
         }
 
     def shred_key(self, key_id: str):
