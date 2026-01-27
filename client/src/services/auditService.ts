@@ -10,6 +10,33 @@ export interface AuditEvent {
 
 const STORAGE_KEY = 'foundlab_audit_logs';
 const MAX_LOGS = 1000;
+const SERVER_URL = 'http://localhost:8000';
+
+const sendToVeritas = async (logEntry: AuditEvent) => {
+  try {
+    // Generate a simple hash of the details for the data_hash field if not provided
+    // In a real implementation, this would be a hash of the artifact/document
+    const payload = {
+        action: logEntry.action,
+        data_hash: logEntry.id, 
+        metadata: {
+            type: logEntry.type,
+            details: logEntry.details,
+            client_timestamp: logEntry.timestamp
+        }
+    };
+
+    await fetch(`${SERVER_URL}/veritas/log`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    console.warn("Veritas Observer unreachable (Offline Mode active)", error);
+  }
+};
 
 export const log = (type: EventType, action: string, details?: any) => {
   try {
@@ -25,6 +52,9 @@ export const log = (type: EventType, action: string, details?: any) => {
     // Prepend new log and limit size
     const updatedLogs = [newLog, ...existingLogs].slice(0, MAX_LOGS);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedLogs));
+
+    // Stream to Veritas Protocol
+    sendToVeritas(newLog);
   } catch (e) {
     console.error("Failed to write audit log", e);
   }

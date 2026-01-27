@@ -14,7 +14,8 @@ import {
   Download,
   Database,
   Activity,
-  Microscope // Icon for Research
+  Microscope,
+  X
 } from 'lucide-react';
 import { AnalysisStatus, ExtractedEntity, EnrichmentData, RiskReport, VerificationResult } from './types';
 import * as geminiService from './services/geminiService';
@@ -28,6 +29,13 @@ import AuditLogViewer from './components/AuditLogViewer';
 import { ResearchWorkflow } from './components/ResearchWorkflow';
 
 type AppView = 'WORKFLOW' | 'REGISTRY' | 'AUDIT' | 'RESEARCH';
+
+const sha256 = async (content: string): Promise<string> => {
+    const msgBuffer = new TextEncoder().encode(content);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('WORKFLOW');
@@ -44,8 +52,8 @@ const App: React.FC = () => {
   const [isVerifying, setIsVerifying] = useState(false);
 
   // Preview State
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [fileType, setFileType] = useState<string | null>(null);
+  const [files, setFiles] = useState<{ name: string; type: string; preview: string; base64: string }[]>([]);
+  const [contextNote, setContextNote] = useState("");
 
   // Navigation Helper
   const changeView = (view: AppView) => {
@@ -53,44 +61,76 @@ const App: React.FC = () => {
     auditService.log('USER_ACTION', 'Navigation Changed', { to: view });
   };
 
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   // Helper to handle file selection
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const selectedFiles = event.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
 
-    setStatus(AnalysisStatus.PARSING_DOC);
     setError(null);
-    
-    auditService.log('USER_ACTION', 'Document Upload Started', { fileName: file.name, type: file.type, size: file.size });
+    // Don't clear previous files immediately if we want to support append, but here we replace
+    setFiles([]); 
+    setExtractedEntity(null);
 
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const result = reader.result as string;
-        // Store preview data
-        setPreviewUrl(result);
-        setFileType(file.type);
+      const filePromises = Array.from(selectedFiles).map(file => {
+        return new Promise<{ base64: string; mimeType: string; name: string; preview: string; base64Raw: string }>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+             const result = reader.result as string;
+             resolve({
+                base64Raw: result.split(',')[1],
+                base64: result.split(',')[1], // Keep for compatibility
+                mimeType: file.type,
+                name: file.name,
+                preview: result
+             });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      });
 
-        const base64String = result.split(',')[1];
-        try {
-          const entity = await geminiService.parseDocument(base64String, file.type);
-          setExtractedEntity(entity);
-          setStatus(AnalysisStatus.EXTRACTED);
-          auditService.log('SYSTEM_EVENT', 'Document Parsed Successfully', { entityName: entity.name, entityType: entity.type });
-        } catch (err) {
-          console.error(err);
-          const errorMsg = "Failed to parse document using Gemini. Please try again.";
-          setError(errorMsg);
-          setStatus(AnalysisStatus.ERROR);
-          auditService.log('ERROR', 'Document Parsing Failed', { error: String(err) });
-        }
-      };
-      reader.readAsDataURL(file);
+      const loadedFiles = await Promise.all(filePromises);
+      setFiles(loadedFiles.map(f => ({ name: f.name, type: f.mimeType, preview: f.preview, base64: f.base64Raw })));
+      
     } catch (e) {
-      setError("Error reading file.");
+      setError("Error reading files.");
       setStatus(AnalysisStatus.ERROR);
-      auditService.log('ERROR', 'File Read Error', { error: String(e) });
     }
+  };
+
+  const startParsing = async () => {
+      if (files.length === 0) return;
+      
+      setStatus(AnalysisStatus.PARSING_DOC);
+      
+      // Hash Context for Audit
+      let contextHash = "NO_CONTEXT";
+      if (contextNote.trim()) {
+          contextHash = await sha256(contextNote);
+          // Veritas Log for Context
+          auditService.log('USER_ACTION', 'CASE_CONTEXT_PROVIDED', {
+            payload_hash: contextHash,
+            context_length: contextNote.length
+          });
+      }
+
+      auditService.log('USER_ACTION', 'Multi-Document Upload Started', { count: files.length, contextHash });
+
+      try {
+        const entity = await geminiService.parseDocument(files.map(f => ({ base64: f.base64, mimeType: f.type })), contextNote);
+        setExtractedEntity(entity);
+        setStatus(AnalysisStatus.EXTRACTED);
+        auditService.log('SYSTEM_EVENT', 'Multi-Document Parsing Success', { entityName: entity.name });
+      } catch (err) {
+        console.error(err);
+        setError("Failed to parse documents. Please ensure clear images/PDFs.");
+        setStatus(AnalysisStatus.ERROR);
+      }
   };
 
   const handleEnrichment = async () => {
@@ -166,6 +206,8 @@ const App: React.FC = () => {
     setFileType(null);
     setVerificationResult(null);
     setIsVerifying(false);
+    setFiles([]);
+    setContextNote("");
   }, []);
 
   const handleDownloadReport = () => {
@@ -267,7 +309,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'RESEARCH' ? (
-          <ResearchWorkflow />
+          <ResearchWorkflow initialTopic={extractedEntity?.name} />
         ) : currentView === 'REGISTRY' ? (
           <RegistrySearch />
         ) : currentView === 'AUDIT' ? (
@@ -313,15 +355,71 @@ const App: React.FC = () => {
                 <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4 text-brand-500">
                   <UploadCloud size={32} />
                 </div>
-                <h2 className="text-2xl font-semibold text-white mb-2">Upload KYC Document</h2>
+                <h2 className="text-2xl font-semibold text-white mb-2">Upload KYC Documents</h2>
                 <p className="text-slate-400 max-w-md mb-6">
-                  Drag and drop or select a Passport, ID, or Business Registration. 
-                  Supports PDF and Images. Powered by Gemini Multimodal Parsing.
+                  Drag and drop Passport, ID, Proof of Address, or Corporate Records. 
+                  Supports Multiple Files (PDF/Images).
                 </p>
                 <label className="cursor-pointer bg-brand-600 hover:bg-brand-500 text-white px-6 py-3 rounded-lg font-medium transition-colors">
-                  Select Document
-                  <input type="file" className="hidden" accept=".pdf,image/*" onChange={handleFileChange} />
+                  Select Documents
+                  <input type="file" multiple className="hidden" accept=".pdf,image/*" onChange={handleFileChange} />
                 </label>
+            
+            {files.length > 0 && (
+              <div className="mt-8 w-full max-w-2xl bg-slate-900/50 p-6 rounded-xl border border-slate-700 animate-in fade-in slide-in-from-bottom-2">
+                 <h3 className="text-sm font-medium text-slate-400 mb-4 flex items-center gap-2">
+                    <FileText size={16} /> Selected Case Files ({files.length})
+                 </h3>
+                 
+                 <div className="grid grid-cols-2 gap-4 mb-6">
+                    {files.map((f, idx) => (
+                        <div key={idx} className="bg-slate-800 p-3 rounded-lg border border-slate-700 flex items-start gap-3 relative group">
+                            <button 
+                                onClick={() => removeFile(idx)}
+                                className="absolute -top-2 -right-2 bg-slate-700 text-slate-400 hover:bg-red-500 hover:text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all shadow-md z-10"
+                                title="Remove file"
+                            >
+                                <X size={14} />
+                            </button>
+                            <div className="h-12 w-12 bg-slate-900 rounded overflow-hidden flex-shrink-0 border border-slate-800">
+                                {f.type.includes('image') ? (
+                                    <img src={f.preview} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-slate-600">
+                                       <FileText size={20} />
+                                    </div>
+                                )}
+                            </div>
+                            <div className="overflow-hidden w-full">
+                                <p className="text-sm text-slate-200 font-medium truncate" title={f.name}>{f.name}</p>
+                                <p className="text-xs text-slate-500 uppercase">{f.type.split('/')[1]}</p>
+                            </div>
+                        </div>
+                    ))}
+                 </div>
+
+                 {/* Context Input Area */}
+                 <div className="mb-6">
+                    <label className="block text-xs font-medium text-brand-400 mb-2 uppercase tracking-wide">
+                        Case Context / Analyst Notes
+                    </label>
+                    <textarea 
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 placeholder-slate-600 focus:ring-1 focus:ring-brand-500 focus:border-brand-500 outline-none resize-none h-24 transition-all"
+                        placeholder="Add context to guide the AI (e.g. 'Subject claims to operate in solar energy. Verify beneficial ownership structure against attached deed.')"
+                        value={contextNote}
+                        onChange={(e) => setContextNote(e.target.value)}
+                    />
+                 </div>
+
+                 <button 
+                    onClick={startParsing}
+                    className="w-full bg-gradient-to-r from-brand-600 to-cyan-600 hover:from-brand-500 hover:to-cyan-500 text-white py-3.5 rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-brand-900/50 hover:shadow-brand-900/80 active:scale-[0.99]"
+                 >
+                    <Search size={18} />
+                    Process Case Files
+                 </button>
+              </div>
+            )}
               </div>
             )}
 
@@ -341,7 +439,7 @@ const App: React.FC = () => {
                  </div>
                  
                  <h3 className="text-xl font-medium text-white tracking-tight">
-                   {status === AnalysisStatus.PARSING_DOC && "Parsing Document with Gemini Vision..."}
+                   {status === AnalysisStatus.PARSING_DOC && "Analisando com Gemini 3.0 Pro + Thinking Mode (pode levar 30-90s)"}
                    {status === AnalysisStatus.ENRICHING && "Agents searching web & registries..."}
                    {status === AnalysisStatus.ANALYZING_RISK && "Reasoning Engine Active..."}
                  </h3>
@@ -358,7 +456,25 @@ const App: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in slide-in-from-bottom-4 duration-500">
                 
                 {/* Left Column: Document Preview */}
-                <DocumentPreview url={previewUrl} mimeType={fileType} />
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium text-slate-400">Uploaded Documents ({files.length})</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                     {files.map((f, idx) => (
+                        <div key={idx} className="bg-slate-800 p-2 rounded border border-slate-700 flex flex-col gap-2">
+                           <div className="h-32 bg-slate-900 rounded overflow-hidden">
+                              {f.type.includes('image') ? (
+                                <img src={f.preview} className="w-full h-full object-cover opacity-80" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-600">
+                                   <FileText size={32} />
+                                </div>
+                              )}
+                           </div>
+                           <p className="text-xs text-slate-300 truncate px-1">{f.name}</p>
+                        </div>
+                     ))}
+                  </div>
+                </div>
 
                 {/* Right Column: Data & Actions */}
                 <div className="space-y-6">
@@ -580,7 +696,23 @@ const App: React.FC = () => {
                        </div>
                     )}
 
-                    <div className="flex justify-end pt-4 border-t border-slate-800">
+                    <div className="flex justify-between items-center pt-4 border-t border-slate-800">
+                      <div className="flex gap-3">
+                         <button
+                            onClick={() => changeView('RESEARCH')}
+                            className="flex items-center gap-2 px-4 py-2 bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 rounded-lg border border-purple-500/30 transition-colors"
+                          >
+                            <Microscope className="w-4 h-4" />
+                            Deep Investigation
+                          </button>
+                          <button 
+                            onClick={() => extractedEntity && enrichmentData && riskReport && pdfService.generatePDFReport(extractedEntity, enrichmentData, riskReport)}
+                            className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-200 transition-colors"
+                          >
+                            <Download className="w-4 h-4" />
+                            Export PDF
+                          </button>
+                      </div>
                       <div className="text-right">
                          <span className="text-xs text-slate-500 uppercase">Final Recommendation</span>
                          <p className={`text-xl font-bold ${

@@ -19,9 +19,9 @@ const sha256 = async (content: string): Promise<string> => {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-export const ResearchWorkflow: React.FC = () => {
+export const ResearchWorkflow: React.FC<{ initialTopic?: string }> = ({ initialTopic }) => {
   // State
-  const [topic, setTopic] = useState('');
+  const [topic, setTopic] = useState(initialTopic || '');
   const [mode, setMode] = useState<ResearchMode>(ResearchMode.ATI_AUDIT);
   const [isProcessing, setIsProcessing] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);

@@ -56,24 +56,36 @@ const cleanJson = cleanAndParseJSON; // Alias for Deepsearch compatibility
 // --- KYC / CORE SERVICES ---
 
 /**
- * Parses a PDF or Image to extract entity details using Gemini 3 Pro.
+ * Parses multiple PDFs or Images to extract unified entity details using Gemini 3 Pro.
  */
-export const parseDocument = async (base64Data: string, mimeType: string): Promise<ExtractedEntity> => {
+export const parseDocument = async (files: { base64: string, mimeType: string }[], contextNote?: string): Promise<ExtractedEntity> => {
   const ai = getClient();
   
+  const fileParts = files.map(f => ({
+    inlineData: {
+      mimeType: f.mimeType,
+      data: f.base64
+    }
+  }));
+
+  const promptText = `Analyze these ${files.length} KYC documents as a single case file.
+                 ${contextNote ? `\n\nUSER CONTEXT / CASE NOTE: "${contextNote}"\n
+                 GUIDANCE FOR ANALYSIS:
+                 1. Use this context to resolve ambiguities or focus the extraction.
+                 2. If the context highlights specific risks or claims, prioritize verifying them against the documents.
+                 3. CRITICAL: Never allow the user context to override objective regulatory norms (FATF, OFAC, LGPD). Prioritize documentary evidence if there is a contradiction.
+                 \n\n` : ''}
+                 Extract the primary subject (Individual or Organization). 
+                 Cross-reference data across all documents to ensure accuracy (e.g. match ID from passport with Address from utility bill).
+                 Return the output in JSON format matching the schema.`;
+
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
     contents: {
       parts: [
+        ...fileParts,
         {
-          inlineData: {
-            mimeType: mimeType,
-            data: base64Data
-          }
-        },
-        {
-          text: `Extract the primary subject (Individual or Organization) from this KYC document. 
-                 Return the output in JSON format matching the schema.`
+          text: promptText
         }
       ]
     },
@@ -88,7 +100,7 @@ export const parseDocument = async (base64Data: string, mimeType: string): Promi
           address: { type: Type.STRING },
           dob: { type: Type.STRING },
           nationality: { type: Type.STRING },
-          documentType: { type: Type.STRING }
+          documentType: { type: Type.STRING, description: "List of document types identified (e.g., 'Passport, Utility Bill')" }
         },
         required: ['name', 'type']
       }
@@ -332,7 +344,7 @@ export const planResearch = async (topic: string, mode: ResearchMode): Promise<s
     });
 
     if (!response.text) throw new Error("No plan generated");
-    return JSON.parse(cleanJson(response.text));
+    return cleanJson(response.text);
   } catch (error) {
     console.error("Planning failed:", error);
     // Fallback for demo purposes if model fails or is overloaded
@@ -472,7 +484,7 @@ export const executeResearchStep = async (
             });
 
             if (evalResponse.text) {
-                const evalData = JSON.parse(cleanJson(evalResponse.text));
+                const evalData = cleanJson(evalResponse.text);
                 hasConflict = evalData.hasConflict || false;
                 newQuestions = evalData.strongClaimsToFork || [];
                 
@@ -602,7 +614,7 @@ export const synthesizeReport = async (
   });
 
   if (!response.text) throw new Error("Synthesis failed");
-  return JSON.parse(cleanJson(response.text));
+  return cleanJson(response.text);
 };
 
 // 4. ORACLE MODE

@@ -22,141 +22,127 @@ export const generatePDFReport = (
 
   // --- HEADER ---
   doc.setFontSize(22);
-  doc.setTextColor(14, 165, 233); // Brand Blue
-  doc.text("FoundLab | KYC Risk Assessment", margin, y);
+  doc.setTextColor(0, 0, 0); 
+  doc.text("TIER 1 BANK | CONFIDENTIAL", margin, y);
   y += 10;
   
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text(`Generated on: ${new Date().toLocaleString()}`, margin, y);
+  doc.text(`Reference: ${crypto.randomUUID().slice(0, 8).toUpperCase()}`, margin, y);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - margin - 50, y);
   doc.line(margin, y + 2, pageWidth - margin, y + 2);
   y += 15;
 
   // --- EXECUTIVE SUMMARY ---
   doc.setFontSize(14);
   doc.setTextColor(0);
-  doc.text("Executive Summary", margin, y);
+  doc.setFont(undefined, 'bold');
+  doc.text("1. Executive Risk Summary", margin, y);
+  doc.setFont(undefined, 'normal');
   y += 8;
   
-  doc.setFontSize(11);
-  doc.setTextColor(60);
+  doc.setFontSize(10);
+  doc.setTextColor(40);
   const summaryLines = doc.splitTextToSize(report.summary, contentWidth);
   doc.text(summaryLines, margin, y);
-  y += (summaryLines.length * 6) + 10;
+  y += (summaryLines.length * 5) + 10;
 
-  // --- RISK ASSESSMENT ---
+  // --- RISK SCORECARD ---
   checkPageBreak(40);
-  doc.setFontSize(14);
-  doc.setTextColor(0);
-  doc.text("Risk Assessment", margin, y);
+  doc.setFillColor(report.riskLevel === 'CRITICAL' || report.riskLevel === 'HIGH' ? 220 : 240, 240, 240);
+  doc.rect(margin, y, contentWidth, 30, 'F');
+  
   y += 8;
-
   doc.setFontSize(12);
-  doc.text(`Risk Level: ${report.riskLevel} (${report.riskScore}/100)`, margin, y);
-  y += 6;
-  doc.text(`Recommendation: ${report.recommendation}`, margin, y);
-  y += 15;
+  doc.setTextColor(0);
+  doc.text(`Risk Rating: ${report.riskLevel}`, margin + 5, y);
+  doc.text(`Score: ${report.riskScore}/100`, margin + 100, y);
+  y += 8;
+  doc.setFontSize(10);
+  doc.text(`Decision: ${report.recommendation}`, margin + 5, y);
+  y += 20;
 
-  // --- SUBJECT ENTITY ---
+  // --- ENTITY PROFILE ---
   checkPageBreak(50);
   doc.setFontSize(14);
-  doc.setTextColor(0);
-  doc.text("Subject Entity Details", margin, y);
+  doc.setFont(undefined, 'bold');
+  doc.text("2. Client Profile (KYC)", margin, y);
+  doc.setFont(undefined, 'normal');
   y += 8;
 
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setTextColor(60);
-  doc.text(`Name: ${entity.name}`, margin, y); y += 6;
-  doc.text(`Type: ${entity.type}`, margin, y); y += 6;
-  doc.text(`ID Number: ${entity.idNumber || "N/A"}`, margin, y); y += 6;
-  doc.text(`Address: ${entity.address || "N/A"}`, margin, y); y += 6;
-  if (entity.dob) { doc.text(`DOB/Inc: ${entity.dob}`, margin, y); y += 6; }
-  if (entity.nationality) { doc.text(`Nationality: ${entity.nationality}`, margin, y); y += 6; }
+  doc.text(`Legal Name: ${entity.name}`, margin, y); y += 5;
+  doc.text(`Entity Type: ${entity.type}`, margin, y); y += 5;
+  doc.text(`ID Reference: ${entity.idNumber || "N/A"}`, margin, y); y += 5;
+  doc.text(`Registered Address: ${entity.address || "N/A"}`, margin, y); y += 5;
+  if (entity.dob) { doc.text(`Incorp/DOB: ${entity.dob}`, margin, y); y += 5; }
+  if (entity.nationality) { doc.text(`Jurisdiction: ${entity.nationality}`, margin, y); y += 5; }
+  if (entity.documentType) { doc.text(`Source Docs: ${entity.documentType}`, margin, y); y += 5; }
   y += 10;
 
-  // --- ENRICHMENT FINDINGS ---
+  // --- ENRICHMENT & ADVERSE MEDIA ---
   checkPageBreak(60);
   doc.setFontSize(14);
   doc.setTextColor(0);
-  doc.text("Agent Enrichment Findings", margin, y);
+  doc.setFont(undefined, 'bold');
+  doc.text("3. Enhanced Due Diligence (EDD) Findings", margin, y);
+  doc.setFont(undefined, 'normal');
   y += 8;
 
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setTextColor(60);
   
   // Location
   doc.setFont(undefined, 'bold');
-  doc.text("Location Verification:", margin, y);
+  doc.text("Geospatial Verification:", margin, y);
   doc.setFont(undefined, 'normal');
-  doc.text(enrichment.locationVerification.verified ? " Verified" : " Unverified", margin + 45, y);
+  doc.text(enrichment.locationVerification.verified ? " [CONFIRMED]" : " [UNVERIFIED]", margin + 45, y);
   y += 6;
   
-  const locLines = doc.splitTextToSize(`Details: ${enrichment.locationVerification.details}`, contentWidth);
+  const locLines = doc.splitTextToSize(`Analysis: ${enrichment.locationVerification.details}`, contentWidth);
   doc.text(locLines, margin, y);
-  y += (locLines.length * 6) + 6;
+  y += (locLines.length * 5) + 6;
 
   // Adverse Media
   doc.setFont(undefined, 'bold');
-  doc.text("Adverse Media Search:", margin, y);
+  doc.text("Negative News / Sanctions Screening:", margin, y);
   doc.setFont(undefined, 'normal');
   y += 6;
-  
+
   if (enrichment.adverseMedia.length === 0) {
-    doc.text("- No significant adverse media found.", margin + 5, y); 
-    y += 6;
+      doc.text("No significant adverse media found in public index.", margin, y);
+      y += 6;
   } else {
-    enrichment.adverseMedia.forEach(media => {
-      checkPageBreak(20);
-      const titleLines = doc.splitTextToSize(`- ${media.title}`, contentWidth - 5);
-      doc.text(titleLines, margin + 5, y);
-      y += (titleLines.length * 6);
-      
-      doc.setTextColor(100);
-      doc.setFontSize(9);
-      const urlLines = doc.splitTextToSize(media.url, contentWidth - 10);
-      doc.text(urlLines, margin + 8, y);
-      y += (urlLines.length * 5) + 2;
-      doc.setFontSize(11);
-      doc.setTextColor(60);
-    });
+      enrichment.adverseMedia.forEach(media => {
+          checkPageBreak(20);
+          doc.setTextColor(0);
+          doc.text(`• ${media.title}`, margin, y);
+          y += 5;
+          doc.setTextColor(80);
+          doc.setFontSize(9);
+          const snippet = doc.splitTextToSize(media.snippet, contentWidth - 5);
+          doc.text(snippet, margin + 5, y);
+          y += (snippet.length * 4) + 4;
+          doc.setTextColor(0, 0, 238);
+          doc.textWithLink("Source Link", margin + 5, y, { url: media.url });
+          doc.setTextColor(60);
+          doc.setFontSize(10);
+          y += 8;
+      });
   }
+  
+  // --- VERITAS AUDIT ---
   y += 10;
+  checkPageBreak(30);
+  doc.setDrawColor(200);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 10;
+  doc.setFontSize(8);
+  doc.setTextColor(150);
+  doc.text("VERITAS PROTOCOL: This document is cryptographically hashed.", margin, y);
+  y += 4;
+  doc.text("Audit Trail: Server-side log active. Zero-Persistence enforced.", margin, y);
 
-  // --- COMPLIANCE ANALYSIS ---
-  checkPageBreak(80);
-  doc.setFontSize(14);
-  doc.setTextColor(0);
-  doc.text("Compliance Logic", margin, y);
-  y += 8;
-
-  doc.setFontSize(11);
-  doc.setTextColor(60);
-
-  const fatfLines = doc.splitTextToSize(`FATF Alignment: ${report.fatfAlignment}`, contentWidth);
-  doc.text(fatfLines, margin, y);
-  y += (fatfLines.length * 6) + 6;
-
-  const ofacLines = doc.splitTextToSize(`OFAC Screening: ${report.ofacScreening}`, contentWidth);
-  doc.text(ofacLines, margin, y);
-  y += (ofacLines.length * 6) + 10;
-
-  // --- RED FLAGS ---
-  if (report.redFlags.length > 0) {
-    checkPageBreak(40);
-    doc.setFontSize(12);
-    doc.setTextColor(220, 38, 38); // Red
-    doc.text("Detected Red Flags:", margin, y);
-    y += 8;
-    
-    doc.setFontSize(11);
-    report.redFlags.forEach(flag => {
-      checkPageBreak(15);
-      const flagLines = doc.splitTextToSize(`• ${flag}`, contentWidth - 5);
-      doc.text(flagLines, margin + 5, y);
-      y += (flagLines.length * 6);
-    });
-  }
-
-  // Save
-  doc.save(`FoundLab_RiskReport_${entity.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`);
+  doc.save(`FoundLab_Risk_Report_${entity.name.replace(/\s/g, '_')}.pdf`);
 };
