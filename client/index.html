@@ -4,12 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FoundLab | Intelligent Due Diligence</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         theme: {
           extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'], 
+            },
             colors: {
+              obsidian: '#09090b', 
+              'signal-success': '#00f0ff', 
+              'signal-warn': '#ffbd2e',
+              'signal-danger': '#ff2a6d',
+              'tech-border': '#27272a',
               brand: {
                 50: '#f0f9ff',
                 100: '#e0f2fe',
@@ -23,6 +33,9 @@
                 900: '#0f172a',
                 950: '#020617',
               }
+            },
+            backgroundImage: {
+              'grid-pattern': "linear-gradient(to right, #27272a 1px, transparent 1px), linear-gradient(to bottom, #27272a 1px, transparent 1px)",
             }
           }
         }
