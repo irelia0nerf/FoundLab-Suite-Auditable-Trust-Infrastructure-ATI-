@@ -144,5 +144,73 @@ export const generatePDFReport = (
   y += 4;
   doc.text("Audit Trail: Server-side log active. Zero-Persistence enforced.", margin, y);
 
-  doc.save(`FoundLab_Risk_Report_${entity.name.replace(/\s/g, '_')}.pdf`);
+  doc.save(`FoundLab_Risk_Report_${entity?.name?.replace(/\s/g, '_') || 'Unknown'}.pdf`);
+};
+
+export const generateDeepSearchPDF = (
+  topic: string,
+  reportText: string,
+  sources: { title: string; uri: string; trustScore?: number }[]
+) => {
+  const doc = new jsPDF();
+  let y = 20;
+  const margin = 14;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - (margin * 2);
+
+  const checkPageBreak = (heightNeeded: number) => {
+    if (y + heightNeeded > doc.internal.pageSize.getHeight() - 20) {
+      doc.addPage();
+      y = 20;
+    }
+  };
+
+  // HEADER
+  doc.setFontSize(22);
+  doc.setTextColor(0);
+  doc.text("FOUNDLAB | DEEP SEARCH", margin, y);
+  y += 10;
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(`Topic: ${topic}`, margin, y);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - margin - 50, y);
+  doc.line(margin, y + 2, pageWidth - margin, y + 2);
+  y += 15;
+
+  // REPORT BODY
+  doc.setFontSize(11);
+  doc.setTextColor(0);
+  const lines = doc.splitTextToSize(reportText, contentWidth);
+  
+  // Render text with simple pagination
+  // Note: Standard jsPDF text doesn't handle markdown. 
+  // For production, we'd strip markdown or use a rich text plugin.
+  // Here we just dump the text cleanly.
+  
+  lines.forEach((line: string) => {
+      checkPageBreak(5);
+      doc.text(line, margin, y);
+      y += 5;
+  });
+
+  // SOURCES
+  y += 10;
+  checkPageBreak(30);
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  doc.text("Cited Sources & Trust Chain", margin, y);
+  doc.setFont(undefined, 'normal');
+  y += 8;
+
+  doc.setFontSize(9);
+  sources.forEach(source => {
+      checkPageBreak(15);
+      doc.setTextColor(0, 0, 200);
+      doc.textWithLink(`[${source.trustScore || '?'}] ${source.title.substring(0, 50)}...`, margin, y, { url: source.uri });
+      doc.setTextColor(80);
+      doc.text(source.uri.substring(0, 60) + "...", margin + 100, y);
+      y += 6;
+  });
+
+  doc.save(`FoundLab_DeepSearch_${topic.substring(0, 10).replace(/\s/g, '_')}.pdf`);
 };

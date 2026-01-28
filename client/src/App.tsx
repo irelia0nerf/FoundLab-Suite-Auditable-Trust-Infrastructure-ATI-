@@ -54,6 +54,7 @@ const App: React.FC = () => {
   // Preview State
   const [files, setFiles] = useState<{ name: string; type: string; preview: string; base64: string }[]>([]);
   const [contextNote, setContextNote] = useState("");
+  const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string } | null>(null);
 
   // Navigation Helper
   const changeView = (view: AppView) => {
@@ -222,8 +223,11 @@ const App: React.FC = () => {
       {/* Sidebar */}
       <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col hidden md:flex">
         <div className="p-6 flex items-center gap-2 border-b border-slate-800">
-          <ShieldCheck className="text-brand-500" size={28} />
-          <span className="text-xl font-bold tracking-tight text-white">FoundLab | ATI</span>
+           {/* Placeholder for Custom Icon */}
+           <div className="w-7 h-7 bg-gradient-to-tr from-brand-400 to-cyan-400 rounded-lg flex items-center justify-center shadow-lg shadow-brand-500/20">
+              <span className="text-slate-950 font-bold text-xs">FL</span>
+           </div>
+           <span className="text-xl font-bold tracking-tight text-white">FoundLab | ATI</span>
         </div>
         <nav className="flex-1 p-4 space-y-2">
           <div 
@@ -278,7 +282,7 @@ const App: React.FC = () => {
           </div>
         </nav>
         <div className="p-4 border-t border-slate-800">
-          <div className="text-xs text-slate-500">Powered by Gemini 3.0 • Veritas Protocol Active</div>
+          <div className="text-xs text-slate-500">Powered by FoundLab • Veritas Protocol Active</div>
         </div>
       </aside>
 
@@ -372,27 +376,38 @@ const App: React.FC = () => {
                  </h3>
                  
                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    {files.map((f, idx) => (
-                        <div key={idx} className="bg-slate-800 p-3 rounded-lg border border-slate-700 flex items-start gap-3 relative group">
+                    {files.map((file, index) => (
+                        <div key={index} className="bg-slate-800 p-3 rounded-lg border border-slate-700 flex items-start gap-3 relative group hover:border-brand-500/50 transition-colors">
+                            {/* Remove Button - Always visible on hover */}
                             <button 
-                                onClick={() => removeFile(idx)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeFile(index);
+                                }}
                                 className="absolute -top-2 -right-2 bg-slate-700 text-slate-400 hover:bg-red-500 hover:text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all shadow-md z-10"
                                 title="Remove file"
                             >
                                 <X size={14} />
                             </button>
-                            <div className="h-12 w-12 bg-slate-900 rounded overflow-hidden flex-shrink-0 border border-slate-800">
-                                {f.type.includes('image') ? (
-                                    <img src={f.preview} className="w-full h-full object-cover" />
+
+                            {/* File Preview Thumbnail */}
+                            <div 
+                                className="h-12 w-12 bg-slate-900 rounded overflow-hidden flex-shrink-0 border border-slate-800 cursor-pointer"
+                                onClick={() => setPreviewFile({ url: file.preview, type: file.type, name: file.name })}
+                                title="Click to Preview"
+                            >
+                                {file.type.includes('image') ? (
+                                    <img src={file.preview} className="w-full h-full object-cover" alt="preview" />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-slate-600">
+                                    <div className="w-full h-full flex items-center justify-center text-slate-600 hover:text-brand-400 transition-colors">
                                        <FileText size={20} />
                                     </div>
                                 )}
                             </div>
+                            
                             <div className="overflow-hidden w-full">
-                                <p className="text-sm text-slate-200 font-medium truncate" title={f.name}>{f.name}</p>
-                                <p className="text-xs text-slate-500 uppercase">{f.type.split('/')[1]}</p>
+                                <p className="text-sm text-slate-200 font-medium truncate" title={file.name}>{file.name}</p>
+                                <p className="text-xs text-slate-500 uppercase">{file.type.split('/')[1] || 'FILE'} • Click icon to preview</p>
                             </div>
                         </div>
                     ))}
@@ -732,6 +747,37 @@ const App: React.FC = () => {
 
       {/* Chat Widget */}
       {currentView !== 'RESEARCH' && <ChatWidget entity={extractedEntity} riskReport={riskReport} />}
+
+      {/* Document Preview Modal */}
+      {previewFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-8 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-5xl h-[85vh] bg-slate-900 rounded-2xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-slate-800 rounded-lg text-brand-400">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-white">{previewFile.name}</h3>
+                  <p className="text-xs text-slate-500 uppercase">{previewFile.type}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setPreviewFile(null)}
+                className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="flex-1 overflow-hidden bg-slate-950 p-1">
+               <DocumentPreview url={previewFile.url} mimeType={previewFile.type} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

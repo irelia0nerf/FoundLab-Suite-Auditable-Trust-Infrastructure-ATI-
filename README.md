@@ -136,6 +136,30 @@ graph TD
    ```
    *Client runs at `http://localhost:3000`*
 
+## 📋 Latest Updates (Current Version)
+
+*   **Standalone Mode:** Client fully functional with local orchestration, decoupled from backend for rapid deployment.
+*   **Global Live Search:** Real-time registry verification using Gemini Grounding (Google Search) for entities not in local databases.
+*   **DeepSearch Reports:** Generation of professional PDF intelligence reports with sourced citations and trust scores.
+*   **Enhanced KYC:** Specific prompts for International Transactions, OFAC/FATF alignment, and Shell Company detection.
+*   **UI/UX Polish:** Document Preview Modal, Improved File Management, and Custom Branding Integration.
+*   **Fast Deploy:** Dockerfiles and scripts (`DEPLOY_GCP.md`) ready for Google Cloud Run.
+
+## 🛣️ Roadmap to v2.0 (The Next Evolution)
+
+The following features are planned for the immediate next phase to fully realize the Auditable Trust Infrastructure:
+
+1.  **Full Server-Side Integration:**
+    *   Re-coupling the React Client with the Python Trust Engine.
+    *   Enforcing "Optical Sieve" on the server (Tesseract/NVIDIA NIM) for true Zero-Persistence guarantees.
+2.  **Veritas Protocol Implementation:**
+    *   Transitioning from local storage logs to a true server-side Immutable Ledger (Hash-Chained).
+3.  **Knowledge Base Ingestion (RAG 2.0):**
+    *   Ability to upload massive datasets (Audit Reports, ISO Certifications).
+    *   Using **Vertex AI Search** or Gemini Long Context to query this private knowledge base securely.
+4.  **Enterprise SSO & RBAC:**
+    *   Role-based access control for compliance teams.
+
 ## 🧠 Core Features
 
 | Module | Description | Tech Stack |
@@ -143,7 +167,7 @@ graph TD
 | **Tier A KYC** | **NEW:** Multi-PDF ingestion, Analyst Context Injection, and Bank-Grade PDF Reporting. | Gemini Vision, jsPDF |
 | **DeepSearch** | Autonomous agent that plans, executes, and synthesizes research. | Gemini 3 Pro, Thinking Mode |
 | **Veritas Protocol** | Hash-chained audit logs ensuring immutability of decisions. | SHA-256, Merkle DAG, FastAPI |
-| **Risk Engine** | Real-time analysis of entities against FATF/OFAC guidelines. | Gemini 2.5 Flash |
+| **Risk Engine** | Real-time analysis of entities against FATF/OFAC guidelines. | Gemini 2.0 Flash |
 | **Optical Sieve** | Computer vision pipeline for document authentication. | OpenCV, Tesseract |
 
 ## 🛡️ Security & Compliance
@@ -162,5 +186,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 <div align="center">
-  <i>Built for the future of Trust.</i>
+  <i>Built for the future of Trust. Powered by FoundLab.</i>
 </div>

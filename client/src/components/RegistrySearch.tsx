@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, AlertTriangle, CheckCircle, Building, User, ChevronDown, MoreHorizontal, ToggleLeft, ToggleRight } from 'lucide-react';
 
+import { searchRegistryLive } from '../services/geminiService';
+
 // Enhanced Mock Data
 const MOCK_REGISTRY = [
   { 
@@ -151,20 +153,47 @@ const RegistrySearch: React.FC = () => {
     type: 'ALL',
     riskLevel: 'ALL'
   });
+  
+  // Live Search State
+  const [liveResults, setLiveResults] = useState<any[]>([]);
+  const [isSearchingLive, setIsSearchingLive] = useState(false);
+  const [hasSearchedLive, setHasSearchedLive] = useState(false);
 
   // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
+      // Reset live results when search term changes significantly
+      if (Math.abs(searchTerm.length - debouncedSearch.length) > 2) {
+        setHasSearchedLive(false);
+        setLiveResults([]);
+      }
     }, 400);
     return () => clearTimeout(handler);
   }, [searchTerm]);
+
+  const handleLiveSearch = async () => {
+    if (!debouncedSearch) return;
+    setIsSearchingLive(true);
+    try {
+        const results = await searchRegistryLive(debouncedSearch);
+        setLiveResults(results);
+        setHasSearchedLive(true);
+    } catch (e) {
+        console.error("Live search failed", e);
+    } finally {
+        setIsSearchingLive(false);
+    }
+  };
 
   // Derived filtered data
   const filteredData = useMemo(() => {
     const query = debouncedSearch.toLowerCase().trim();
     
-    return MOCK_REGISTRY.filter(item => {
+    // Combine mock data and live results
+    const combinedData = [...liveResults, ...MOCK_REGISTRY];
+    
+    return combinedData.filter(item => {
       // 1. Search Logic
       let matchesSearch = false;
       
@@ -302,6 +331,20 @@ const RegistrySearch: React.FC = () => {
              </div>
           </div>
         </div>
+
+        {/* Global Live Search Trigger */}
+        {debouncedSearch.length > 2 && !hasSearchedLive && (
+            <div className="pt-2 border-t border-slate-800 mt-2">
+                <button 
+                    onClick={handleLiveSearch}
+                    disabled={isSearchingLive}
+                    className="w-full py-3 flex items-center justify-center gap-2 text-brand-400 hover:bg-slate-900/50 rounded-lg transition-colors border border-dashed border-slate-700 hover:border-brand-500/50"
+                >
+                    {isSearchingLive ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-brand-500 border-t-transparent"/> : <Search size={16} />}
+                    {isSearchingLive ? "Scanning Global Registries (Gemini Deep Search)..." : `Run Global Live Search for "${debouncedSearch}"`}
+                </button>
+            </div>
+        )}
       </div>
 
       {/* Results Table */}

@@ -116,9 +116,9 @@ export const parseDocument = async (files: { base64: string, mimeType: string }[
 export const enrichEntityData = async (entity: ExtractedEntity): Promise<EnrichmentData> => {
   const ai = getClient();
   
-  // 1. Search Grounding for Adverse Media (Gemini 3 Flash)
+  // 1. Search Grounding for Adverse Media (Gemini 2.0 Flash)
   const searchPromise = ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-2.0-flash',
     contents: `Search for adverse media, recent news, and legal issues regarding "${entity.name}" (${entity.type}). 
                Focus on financial crime, money laundering, or sanctions.
                If the entity is an organization, check for recent regulatory fines.
@@ -128,11 +128,11 @@ export const enrichEntityData = async (entity: ExtractedEntity): Promise<Enrichm
     }
   });
 
-  // 2. Maps Grounding for Location Verification (Gemini 2.5 Flash)
+  // 2. Maps Grounding for Location Verification (Gemini 2.0 Flash)
   let mapsPromise;
   if (entity.address) {
     mapsPromise = ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       contents: `Verify if the address "${entity.address}" exists and what kind of establishment it is (residential, commercial, government).`,
       config: {
         tools: [{ googleMaps: {} }]
@@ -175,12 +175,17 @@ export const verifyEntitySanctions = async (entity: ExtractedEntity): Promise<Ve
   const ai = getClient();
   
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `Check if "${entity.name}" is listed on the following sanctions lists: 
+    model: 'gemini-2.0-flash',
+    contents: `Check if "${entity.name}" is listed on major global sanctions and watchlists.
+               Focus on cross-border transaction risks (SWIFT/IBAN implications).
+               
+               Lists to check:
                1. OFAC SDN List (USA)
                2. UN Consolidated List
-               3. EU Financial Sanctions
-               4. UK HM Treasury List
+               3. EU Financial Sanctions (CFSP)
+               4. UK HM Treasury List (OFSI)
+               5. Interpol Red Notices
+               6. Local Regulatory Watchlists (e.g., CVM/BACEN if relevant context appears)
                
                Use Google Search to verify.
                
@@ -229,20 +234,23 @@ export const generateRiskAssessment = async (entity: ExtractedEntity, enrichment
   const ai = getClient();
 
   const prompt = `
-    Act as a Senior Compliance Officer. Analyze the following KYC profile against FATF guidelines and OFAC logic.
+    Act as a Senior Compliance Officer specializing in International Banking and Cross-Border Transactions.
+    Analyze the following KYC profile against FATF guidelines, Wolfsberg Group principles, and OFAC regulations.
     
     Entity: ${JSON.stringify(entity)}
-    Enrichment Data (Search/Maps): ${JSON.stringify(enrichment)}
+    Enrichment Data: ${JSON.stringify(enrichment)}
 
     Task:
-    1. Calculate a risk score (0-100, where 100 is critical risk).
-    2. Determine Risk Level.
-    3. List specific Red Flags.
-    4. Provide FATF Alignment analysis.
-    5. Provide OFAC Screening analysis.
-    6. Provide a final Recommendation (Approve, Reject, Enhanced Due Diligence).
+    1. Calculate a risk score (0-100).
+    2. Identify SPECIFIC red flags for international transactions (e.g., shell company indicators, jurisdiction mismatch, adverse media in foreign languages).
+    3. Analyze FATF Alignment (Grey/Black list implications of the entity's nationality/address).
+    4. Provide OFAC Screening analysis.
+    5. Final Recommendation: APPROVE, REJECT, or ENHANCED DUE DILIGENCE (EDD).
 
-    Use your reasoning capabilities to connect dots between the document data and the enrichment data.
+    Focus on detecting:
+    - Layering techniques.
+    - Ultimate Beneficial Ownership (UBO) opacity.
+    - Potential for Trade-Based Money Laundering (TBML).
   `;
 
   const response = await ai.models.generateContent({
@@ -296,6 +304,57 @@ export const sendChatMessage = async (
 
   const result = await chat.sendMessage({ message });
   return result.text;
+};
+
+
+// --- REGISTRY SERVICES ---
+
+/**
+ * Performs a live search against public registries using Google Search Grounding.
+ * Used when local mock registry returns no results.
+ */
+export const searchRegistryLive = async (query: string): Promise<any[]> => {
+  const ai = getClient();
+
+  const prompt = `
+    Act as a Global Corporate Registry Search Agent.
+    Search for the entity "${query}" in official business registries, sanctions lists, and public databases.
+    
+    Task:
+    1. Identify if the entity exists.
+    2. Extract key details: Legal Name, Jurisdiction, Entity Type, Status (Active/Inactive).
+    3. Assess initial risk based on public adverse media or sanctions presence.
+
+    Return a JSON array of potential matches (max 3).
+  `;
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.0-flash',
+    contents: prompt,
+    config: {
+      tools: [{ googleSearch: {} }],
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            id: { type: Type.STRING },
+            name: { type: Type.STRING },
+            type: { type: Type.STRING, enum: ['ORGANIZATION', 'INDIVIDUAL'] },
+            jurisdiction: { type: Type.STRING },
+            riskScore: { type: Type.NUMBER },
+            riskLevel: { type: Type.STRING, enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] },
+            lastUpdated: { type: Type.STRING },
+            description: { type: Type.STRING },
+            aliases: { type: Type.ARRAY, items: { type: Type.STRING } }
+          }
+        }
+      }
+    }
+  });
+
+  return cleanJson(response.text);
 };
 
 // --- DEEPSEARCH / RESEARCH SERVICES ---
@@ -389,7 +448,7 @@ export const executeResearchStep = async (
     `;
 
     const searchResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       contents: searchPrompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -468,7 +527,7 @@ export const executeResearchStep = async (
             `;
 
             const evalResponse = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-2.0-flash',
                 contents: evalPrompt,
                 config: {
                     responseMimeType: "application/json",
