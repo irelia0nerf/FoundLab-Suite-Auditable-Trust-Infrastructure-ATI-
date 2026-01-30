@@ -5,8 +5,8 @@ import pytesseract
 import sys
 import os
 from pathlib import Path
-from ...core.umbrella import UmbrellaKMS
-from ...pipeline.stage4_veritas.veritas_observer import VeritasObserver
+from core.umbrella import UmbrellaKMS
+from pipeline.stage4_veritas.veritas_observer import VeritasObserver
 import gc
 
 class IOpticalEngine(ABC):
@@ -27,6 +27,10 @@ class TesseractEngine(IOpticalEngine):
 
     def extract_text(self, image: np.ndarray) -> str:
         tess_config = rf'--tessdata-dir "{self.tessdata_path}"' if self.tessdata_path else ''
+        # Improve OCR accuracy with PSM and OEM modes
+        # --psm 3: Fully automatic page segmentation, but no OSD. (Default)
+        # --oem 3: Default OCR Engine Mode
+        tess_config += ' --psm 3 --oem 3'
         return pytesseract.image_to_string(image, config=tess_config)
 
 class OpticalSieve:

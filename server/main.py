@@ -47,6 +47,13 @@ async def root():
         "protocol": "Veritas 2.0"
     }
 
+@app.get("/veritas/chain")
+async def get_audit_chain():
+    """
+    Retrieves the full immutable audit chain (simulated).
+    """
+    return veritas.get_chain()
+
 @app.post("/veritas/log")
 async def log_audit_event(request: AuditLogRequest):
     """

@@ -27,6 +27,10 @@ class VeritasObserver:
     # Simulação de Estado da Cadeia (Em produção, viria do BigQuery/Ledger)
     _chain_tip_hash = "0000000000000000000000000000000000000000000000000000000000000000"
     _chain_index = 0
+    _chain_history = []
+
+    def get_chain(self):
+        return VeritasObserver._chain_history
 
     def emit_log(self, action: str, data_hash: str) -> str:
         # 1. Calcular Timestamp
@@ -54,6 +58,7 @@ class VeritasObserver:
         # 5. Atualizar Estado da Cadeia (Simulado)
         VeritasObserver._chain_tip_hash = lock_hash
         VeritasObserver._chain_index += 1
+        VeritasObserver._chain_history.append(link.__dict__)
         
         # 6. Emitir Log Estruturado
         print(f"[VERITAS BLACK-CHAIN]: {json.dumps(link.__dict__)}")
