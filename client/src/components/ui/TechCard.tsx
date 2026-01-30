@@ -10,22 +10,22 @@ interface TechCardProps {
 const TechCard: React.FC<TechCardProps> = ({ children, title, className = "", variant = 'default' }) => {
   // Define a cor da borda baseada na variante
   const borderColor = 
-    variant === 'alert' ? 'border-red-500/50' : 
-    variant === 'success' ? 'border-cyan-500/50' : 
-    'border-slate-800';
+    variant === 'alert' ? 'border-red-200' : 
+    variant === 'success' ? 'border-cyan-200' : 
+    'border-slate-200';
 
   const glowClass = 
-    variant === 'alert' ? 'shadow-[0_0_15px_rgba(239,68,68,0.15)]' : 
-    variant === 'success' ? 'shadow-[0_0_15px_rgba(6,182,212,0.15)]' : 
-    '';
+    variant === 'alert' ? 'shadow-sm shadow-red-100' : 
+    variant === 'success' ? 'shadow-sm shadow-cyan-100' : 
+    'shadow-sm';
 
   return (
-    <div className={`relative bg-slate-950/80 backdrop-blur-sm border ${borderColor} ${glowClass} p-1 ${className}`}>
+    <div className={`relative bg-white backdrop-blur-sm border ${borderColor} ${glowClass} p-1 ${className}`}>
       {/* Decorative Corner Markers - Dá o visual "Técnico" */}
-      <div className="absolute top-0 left-0 w-2 h-2 border-l-2 border-t-2 border-current opacity-50"></div>
-      <div className="absolute top-0 right-0 w-2 h-2 border-r-2 border-t-2 border-current opacity-50"></div>
-      <div className="absolute bottom-0 left-0 w-2 h-2 border-l-2 border-b-2 border-current opacity-50"></div>
-      <div className="absolute bottom-0 right-0 w-2 h-2 border-r-2 border-b-2 border-current opacity-50"></div>
+      <div className="absolute top-0 left-0 w-2 h-2 border-l-2 border-t-2 border-slate-300 opacity-50"></div>
+      <div className="absolute top-0 right-0 w-2 h-2 border-r-2 border-t-2 border-slate-300 opacity-50"></div>
+      <div className="absolute bottom-0 left-0 w-2 h-2 border-l-2 border-b-2 border-slate-300 opacity-50"></div>
+      <div className="absolute bottom-0 right-0 w-2 h-2 border-r-2 border-b-2 border-slate-300 opacity-50"></div>
 
       {/* Header Técnico Opcional */}
       {title && (

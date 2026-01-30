@@ -105,45 +105,49 @@ graph TD
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-org/foundlab-suite.git
-   cd foundlab-suite
-   ```
+To run the full suite, you will need two separate terminal instances.
 
-2. **Setup Server (Trust Engine)**
-   *Required for Veritas Auditing & Umbrella Encryption.*
-   ```bash
-   cd server
-   python -m venv venv
-   # Windows: .\venv\Scripts\activate
-   # Linux/Mac: source venv/bin/activate
-   pip install -r requirements.txt
-   python main.py
-   ```
-   *Server runs at `http://localhost:8000`*
+#### Terminal 1: Server (Trust Engine)
+*Required for Veritas Auditing & Umbrella Encryption.*
+```bash
+cd server
+python -m venv venv
+# Windows:
+.\venv\Scripts\Activate.ps1
+# Linux/Mac:
+# source venv/bin/activate
 
-3. **Setup Client (Cognitive Interface)**
-   ```bash
-   cd ../client
-   npm install
-   
-   # Setup Environment
-   cp .env.example .env
-   # Edit .env and add your VITE_GEMINI_API_KEY
-   
-   npm run dev
-   ```
-   *Client runs at `http://localhost:3000`*
+pip install -r requirements.txt
+python main.py
+```
+*Server runs at `http://localhost:8000`*
+
+#### Terminal 2: Client (Cognitive Interface)
+```bash
+cd client
+npm install
+
+# Setup Environment
+cp .env.example .env
+# Edit .env and add your VITE_GEMINI_API_KEY
+
+npm run dev
+```
+*Client runs at `http://localhost:3000`*
 
 ## 📋 Latest Updates (Current Version)
 
-*   **Standalone Mode:** Client fully functional with local orchestration, decoupled from backend for rapid deployment.
+*   **Deep Search "Perfected":**
+    *   **Trust Scoring:** Implemented a "Source Trust Chain" heuristic (prioritizing `.gov`, `.edu`, `sec.gov`) to filter out low-quality information.
+    *   **Guardian AI:** Enhanced "Critic-Loop" validator to flag weak evidence and force re-verification.
+    *   **Robust Parsing:** Fixed JSON handling for complex LLM responses (Gemini 3 Pro Thinking Mode).
+*   **System Stability:**
+    *   **Frontend Refactor:** Migrated to professional `PostCSS`/`Tailwind` architecture (removed CDN).
+    *   **Connection Fixes:** Resolved CORS and connection refusal issues between Client and Server.
 *   **Global Live Search:** Real-time registry verification using Gemini Grounding (Google Search) for entities not in local databases.
 *   **DeepSearch Reports:** Generation of professional PDF intelligence reports with sourced citations and trust scores.
 *   **Enhanced KYC:** Specific prompts for International Transactions, OFAC/FATF alignment, and Shell Company detection.
 *   **UI/UX Polish:** Document Preview Modal, Improved File Management, and Custom Branding Integration.
-*   **Fast Deploy:** Dockerfiles and scripts (`DEPLOY_GCP.md`) ready for Google Cloud Run.
 
 ## 🛣️ Roadmap to v2.0 (The Next Evolution)
 

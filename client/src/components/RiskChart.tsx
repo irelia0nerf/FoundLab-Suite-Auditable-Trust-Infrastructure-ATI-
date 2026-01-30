@@ -38,13 +38,13 @@ const RiskChart: React.FC<RiskChartProps> = ({ score }) => {
             stroke="none"
           >
             <Cell key="score" fill={activeColor} />
-            <Cell key="remaining" fill="#1e293b" />
+            <Cell key="remaining" fill="#e2e8f0" />
           </Pie>
         </PieChart>
       </ResponsiveContainer>
       <div className="absolute top-[60%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-        <p className="text-4xl font-bold text-white">{score}</p>
-        <p className="text-sm text-slate-400">Risk Score</p>
+        <p className="text-4xl font-bold font-mono text-slate-800">{score}</p>
+        <p className="text-sm font-mono uppercase tracking-widest text-slate-500">Risk Score</p>
       </div>
     </div>
   );

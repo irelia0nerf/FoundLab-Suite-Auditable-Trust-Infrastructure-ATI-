@@ -245,19 +245,19 @@ const RegistrySearch: React.FC = () => {
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-white tracking-tight">Global KYC Registry</h1>
-        <p className="text-slate-400">Search and filter existing profiles in the centralized compliance database.</p>
+        <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">Global KYC Registry</h1>
+        <p className="text-slate-500">Search and filter existing profiles in the centralized compliance database.</p>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4 shadow-xl">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
         {/* Search Bar & Toggles */}
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
           <div className="relative flex-1 w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input 
               type="text" 
               placeholder="Search by Name, ID, Alias, or Keyword..." 
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg py-3 pl-10 pr-4 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -267,8 +267,8 @@ const RegistrySearch: React.FC = () => {
             onClick={() => setIsFuzzy(!isFuzzy)}
             className={`flex items-center gap-2 px-4 py-3 rounded-lg border transition-colors ${
               isFuzzy 
-                ? 'bg-brand-900/30 border-brand-500 text-brand-400' 
-                : 'bg-slate-950 border-slate-700 text-slate-400 hover:border-slate-600'
+                ? 'bg-cyan-50 border-cyan-500 text-cyan-700' 
+                : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
             }`}
           >
             {isFuzzy ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
@@ -284,14 +284,14 @@ const RegistrySearch: React.FC = () => {
              <label className="text-xs text-slate-500 font-medium ml-1 mb-1 block">JURISDICTION</label>
              <div className="relative">
                <select 
-                 className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg p-2.5 appearance-none focus:outline-none focus:border-brand-500"
+                 className="w-full bg-white border border-slate-200 text-slate-700 text-sm rounded-lg p-2.5 appearance-none focus:outline-none focus:border-cyan-500"
                  value={filters.jurisdiction}
                  onChange={(e) => setFilters(prev => ({ ...prev, jurisdiction: e.target.value }))}
                >
                  <option value="ALL">All Jurisdictions</option>
                  {uniqueJurisdictions.map(j => <option key={j} value={j}>{j}</option>)}
                </select>
-               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
              </div>
           </div>
 
