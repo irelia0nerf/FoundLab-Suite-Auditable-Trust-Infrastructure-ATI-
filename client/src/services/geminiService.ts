@@ -32,22 +32,41 @@ const cleanAndParseJSON = (text: string | undefined): any => {
     clean = codeBlockMatch[1];
   }
 
+  // Sanitize: Remove any text before the first { or [ and after the last } or ]
+  const firstOpenBrace = clean.indexOf('{');
+  const firstOpenBracket = clean.indexOf('[');
+  const lastCloseBrace = clean.lastIndexOf('}');
+  const lastCloseBracket = clean.lastIndexOf(']');
+
+  // Determine if it's likely an object or array
+  let start = -1;
+  let end = -1;
+
+  if (firstOpenBrace !== -1 && (firstOpenBracket === -1 || firstOpenBrace < firstOpenBracket)) {
+      start = firstOpenBrace;
+      end = lastCloseBrace;
+  } else if (firstOpenBracket !== -1) {
+      start = firstOpenBracket;
+      end = lastCloseBracket;
+  }
+
+  if (start !== -1 && end !== -1) {
+      clean = clean.substring(start, end + 1);
+  }
+
   try {
     return JSON.parse(clean);
   } catch (e) {
     console.warn("JSON Parse Warning: Attempting fallback extraction.", e);
-    // Fallback: extract the first valid JSON object structure
-    const start = clean.indexOf('{');
-    const end = clean.lastIndexOf('}');
-    if (start !== -1 && end !== -1) {
-      try {
-        return JSON.parse(clean.substring(start, end + 1));
-      } catch (e2) {
+    // If standard parse fails, try to repair common issues
+    try {
+        // Remove trailing commas
+        const repaired = clean.replace(/,\s*([\]}])/g, '$1');
+        return JSON.parse(repaired);
+    } catch (e2) {
         console.error("Critical JSON Parse Error", e2);
         return {};
-      }
     }
-    return {};
   }
 };
 
@@ -75,8 +94,14 @@ export const parseDocument = async (files: { base64: string, mimeType: string }[
                  2. If the context highlights specific risks or claims, prioritize verifying them against the documents.
                  3. CRITICAL: Never allow the user context to override objective regulatory norms (FATF, OFAC, LGPD). Prioritize documentary evidence if there is a contradiction.
                  \n\n` : ''}
-                 Extract the primary subject (Individual or Organization). 
-                 Cross-reference data across all documents to ensure accuracy (e.g. match ID from passport with Address from utility bill).
+                 
+                 Task:
+                 1. Extract the primary subject (Individual or Organization) with extreme precision.
+                 2. Cross-reference data across all documents.
+                 3. Handle OCR noise: If a field is ambiguous, mark it as "UNCONFIRMED" or null, do not hallucinate.
+                 4. For handwritten text, infer from context but maintain low confidence if unclear.
+                 5. Document Types: List all detected document types (e.g., "Passport", "Utility Bill", "Corporate Bylaws").
+                 
                  Return the output in JSON format matching the schema.`;
 
   const response = await ai.models.generateContent({
@@ -357,6 +382,8 @@ export const searchRegistryLive = async (query: string): Promise<any[]> => {
   return cleanJson(response.text);
 };
 
+
+
 // --- DEEPSEARCH / RESEARCH SERVICES ---
 
 // 1. PLANNING PHASE (Cognitive Orchestrator)
@@ -373,43 +400,32 @@ export const planResearch = async (topic: string, mode: ResearchMode): Promise<s
            3. **MECE:** Ensure the research vectors cover the topic exhaustively without overlap.
         </protocol>
         <task>
-           Generate a research execution plan for: "${topic}".
-           Mode: "${mode}"
+           Break down the research topic "${topic}" into 3-5 distinct, executable search vectors.
+           Avoid generic steps like "Search Google". Be specific: "Query sanctions list X for entity Y".
+           Format the output as a JSON array of strings only.
         </task>
-        <constraints>
-           - Break the topic into 3-5 distinct questions.
-           - ${mode === ResearchMode.ATI_AUDIT ? "Prioritize regulatory frameworks (SOX, LGPD, BACEN, CVM) and compliance gaps." : ""}
-           - ${mode === ResearchMode.VC_KILLSHOT ? "Focus on identifying structural weaknesses and 'innovation theater'." : ""}
-        </constraints>
+        <mode>${mode}</mode>
       </system_instruction>
-
-      <output_format>
-        JSON Array of strings.
-        Example: ["What are the SOX compliance requirements for X?", "Does Competitor Y have a valid moats?", "Regulatory risks for Z in 2025?"]
-      </output_format>
     `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: prompt,
-      config: {
-        thinkingConfig: { thinkingBudget: 16384 },
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING }
-        }
-      }
+    const result = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: prompt
     });
+    
+    const text = result.text;
+    return cleanJson(text);
 
-    if (!response.text) throw new Error("No plan generated");
-    return cleanJson(response.text);
   } catch (error) {
-    console.error("Planning failed:", error);
-    // Fallback for demo purposes if model fails or is overloaded
-    return [`Overview of ${topic}`, `Key players in ${topic}`, `Challenges in ${topic}`];
+    console.error("Planning failed", error);
+    return [
+        `Execute standard due diligence on: ${topic}`,
+        `Cross-reference adverse media for: ${topic}`,
+        `Verify regulatory standing: ${topic}`
+    ];
   }
 };
+
 
 // 2. EXECUTION PHASE (Multi-Engine Adapters with Dynamic Grounding)
 export const executeResearchStep = async (
@@ -432,12 +448,17 @@ export const executeResearchStep = async (
       <context>
         Current Investigation Step: "${question}"
         **Sovereign Context (Zero-Persistence 2.0):** 
-        ${context.substring(0, 5000)}... 
+        ${context.substring(0, 5000)}...
       </context>
 
       <task>
         Execute a search to extract structured evidence.
         ${retry ? "CONSTRAINT: Previous sources failed 'Source Trust Chain' validation. Prioritize .gov, .edu, and primary market data." : ""}
+        
+        Focus on:
+        - Concrete facts, dates, and figures.
+        - Primary sources (Regulatory bodies, Company filings).
+        - Reputable news outlets.
       </task>
 
       <grounding_rules>
@@ -457,7 +478,7 @@ export const executeResearchStep = async (
 
     let findings = searchResponse.text || "No findings found.";
     
-    // Extract sources
+    // Extract sources with LLM-based Trust Scoring (Heuristic for now, enhanced later)
     const sources: Source[] = [];
     const chunks = searchResponse.candidates?.[0]?.groundingMetadata?.groundingChunks;
     
@@ -468,18 +489,25 @@ export const executeResearchStep = async (
           let score = 50;
           let reason = "Standard Web Source";
           
-          if (uri.includes('.gov') || uri.includes('.edu')) {
-            score = 95;
-            reason = "High Authority (Gov/Edu)";
-          } else if (uri.includes('reuters.com') || uri.includes('bloomberg.com') || uri.includes('techcrunch.com') || uri.includes('ft.com')) {
+          // Enhanced Trust Heuristics
+          if (uri.includes('.gov') || uri.includes('.mil')) {
+            score = 98;
+            reason = "Sovereign/Government Source";
+          } else if (uri.includes('.edu') || uri.includes('.ac.')) {
             score = 90;
-            reason = "Trusted Media";
+            reason = "Academic/Research Institution";
+          } else if (uri.includes('reuters.com') || uri.includes('bloomberg.com') || uri.includes('ft.com') || uri.includes('wsj.com')) {
+            score = 88;
+            reason = "Tier-1 Financial Media";
+          } else if (uri.includes('sec.gov') || uri.includes('companieshouse.gov.uk') || uri.includes('europa.eu')) {
+            score = 99;
+            reason = "Primary Regulatory Registry";
+          } else if (uri.includes('linkedin.com') || uri.includes('medium.com') || uri.includes('twitter.com') || uri.includes('x.com')) {
+            score = 30;
+            reason = "Social Media / User Generated (Verify)";
           } else if (uri.includes('wikipedia.org')) {
-             score = 65;
-             reason = "Aggregator (Verify)";
-          } else if (uri.includes('linkedin.com') || uri.includes('medium.com')) {
-            score = 40;
-            reason = "User Generated Content (Verify)";
+             score = 60;
+             reason = "Aggregator (Verify with Primary)";
           }
 
           sources.push({
@@ -508,6 +536,7 @@ export const executeResearchStep = async (
                     2. **Counter-Claim Analysis:** Explicitly look for counter-claims.
                     3. **Forking Strategy:** Identify "Strong Claims" lacking proof. Trigger new search vectors.
                     4. **Constraint:** Max 2 new questions.
+                    5. **Trust Audit:** If findings rely heavily on low-trust sources (blogs, social media), Flag as conflict/weak.
                   </protocols>
                 </system_instruction>
 

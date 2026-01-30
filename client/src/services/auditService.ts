@@ -6,11 +6,29 @@ export interface AuditEvent {
   type: EventType;
   action: string;
   details?: string;
+  veritas_hash?: string;
+  chain_index?: number;
 }
 
 const STORAGE_KEY = 'foundlab_audit_logs';
 const MAX_LOGS = 1000;
 const SERVER_URL = 'http://localhost:8000';
+
+const updateLogWithVerification = (id: string, lock_hash: string, chain_index: number) => {
+    try {
+        const logs = getLogs();
+        const logIndex = logs.findIndex(l => l.id === id);
+        if (logIndex !== -1) {
+            logs[logIndex].veritas_hash = lock_hash;
+            logs[logIndex].chain_index = chain_index;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+            // Dispatch storage event to notify listeners (if any)
+            window.dispatchEvent(new Event('storage'));
+        }
+    } catch (e) {
+        console.error("Failed to update log verification", e);
+    }
+}
 
 const sendToVeritas = async (logEntry: AuditEvent) => {
   try {
@@ -26,13 +44,20 @@ const sendToVeritas = async (logEntry: AuditEvent) => {
         }
     };
 
-    await fetch(`${SERVER_URL}/veritas/log`, {
+    const response = await fetch(`${SERVER_URL}/veritas/log`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
     });
+    
+    if (response.ok) {
+        const data = await response.json();
+        if (data.lock_hash) {
+            updateLogWithVerification(logEntry.id, data.lock_hash, data.chain_index);
+        }
+    }
   } catch (error) {
     console.warn("Veritas Observer unreachable (Offline Mode active)", error);
   }
